@@ -1,0 +1,2 @@
+channels,num_channels,total_samples,train_samples,val_samples,epochs,best_epoch,best_val_dice,final_train_dice,final_train_iou,final_train_precision,final_train_recall,final_val_dice,final_val_iou,final_val_precision,final_val_recall,training_time_seconds
+dsDNA|CD4,2,41,33,8,25,0,0.0,0.8846413228246901,0.7939836647775438,0.8717367516623603,0.9000338514645895,0.8810433447360992,0.7889620363712311,0.8746408224105835,0.8884161114692688,2484.261508703232

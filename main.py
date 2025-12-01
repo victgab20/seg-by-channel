@@ -25,7 +25,7 @@ import os
 
 load_dotenv()
 ROOT = r"C:\Users\victo\Downloads\Mestrado\TNBC\preproc_unet_per_channel"
-OUT_CSV = "results_per_channel_v2.csv"
+OUT_CSV = "results_per_channel_v4_with_imagenet.csv"
 
 IMG_SIZE = 512 
 VAL_SPLIT = 0.2
@@ -36,10 +36,10 @@ NUM_WORKERS = 2
 SEED = 1337
 
 ENCODER = "resnet34" 
-ENCODER_WEIGHTS = None 
+ENCODER_WEIGHTS = "imagenet"
 ACTIVATION = None
 
-IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior"])
+IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior", "Au","Ta","Si"])
 
 # ROOT = os.getenv("ROOT")
 

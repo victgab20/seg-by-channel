@@ -1,0 +1,2 @@
+channels,num_channels,total_samples,train_samples,val_samples,epochs,best_epoch,best_val_dice,final_train_dice,final_train_iou,final_train_precision,final_train_recall,final_val_dice,final_val_iou,final_val_precision,final_val_recall,training_time_seconds
+dsDNA|P|Ca,3,41,33,8,25,0,0.0,0.8826353616184659,0.791048546632131,0.87389075756073,0.8938338160514832,0.866401195526123,0.769329160451889,0.864459902048111,0.8704284429550171,2538.6198461055756
