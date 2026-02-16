@@ -23,18 +23,18 @@ import segmentation_models_pytorch as smp
 # Hiperparâmetros originais
 # =========================
 ROOT = r"C:\Users\victo\Downloads\Mestrado\TNBC\preproc_unet_per_channel"
-OUT_CSV = "results_multichannel_incremental_default_encoder_none.csv"
+OUT_CSV = "results_multichannel_incremental_my_test_encoder_imagenet.csv"
 
 IMG_SIZE = 512
 VAL_SPLIT = 0.2
 BATCH_SIZE = 4
-EPOCHS = 5
+EPOCHS = 10
 LR = 1e-4
 NUM_WORKERS = 2
 SEED = 1337
 
 ENCODER = "resnet34"
-ENCODER_WEIGHTS = None
+ENCODER_WEIGHTS = "imagenet"
 ACTIVATION = None
 
 IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior"])
@@ -44,13 +44,16 @@ IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior"])
 #TOP_BY_DICE = ["dsDNA","Ta","Au","P","H3K27me3","Ca","C","Lag3","OX40","CD11c"]
 
 TOP_BY_DICE = [
-    "dsDNA",
-    "CD4",
-    "Beta_catenin",
-    "HLA-DR",
-    "H3K9ac",
-    "Pan-Keratin",
-    "H3K27me3"
+'dsDNA',
+'P',
+"Ca",
+"Na",
+"CD56",
+"CD209",
+"CD31",
+"Keratin17",
+"CD45RO",
+"OX40",
 ]
 
 
@@ -287,12 +290,16 @@ def train_eval_for_k(root, channels_k, stems, train_idx, val_idx, device):
         tot_loss /= ds_len
         return (tot_loss,
                 float(np.mean(ious)) if ious else 0.0,
+                float(np.std(ious)) if ious else 0.0,
                 float(np.mean(dices)) if dices else 0.0,
+                float(np.std(dices)) if dices else 0.0,
                 float(np.mean(precs)) if precs else 0.0,
-                float(np.mean(recs)) if recs else 0.0)
+                float(np.std(precs)) if precs else 0.0,
+                float(np.mean(recs)) if recs else 0.0,
+                float(np.std(recs)) if recs else 0.0)
 
-    train_loss, train_iou, train_dice, train_prec, train_rec = eval_loader(train_loader, len(train_ds))
-    val_loss,   val_iou,   val_dice,   val_prec,   val_rec   = eval_loader(val_loader,   len(val_ds))
+    train_loss, train_iou, train_iou_std, train_dice, train_dice_std, train_prec, train_prec_std, train_rec, train_rec_std = eval_loader(train_loader, len(train_ds))
+    val_loss,   val_iou,   val_iou_std,   val_dice,   val_dice_std,   val_prec,   val_prec_std,   val_rec,   val_rec_std   = eval_loader(val_loader,   len(val_ds))
 
     return {
         "k": len(channels_k),
@@ -300,10 +307,16 @@ def train_eval_for_k(root, channels_k, stems, train_idx, val_idx, device):
         "n_total": len(stems),
         "n_train": len(train_ds),
         "n_val": len(val_ds),
-        "train_loss": train_loss, "train_iou": train_iou, "train_dice": train_dice,
-        "train_prec": train_prec, "train_rec": train_rec,
-        "val_loss": val_loss, "val_iou": val_iou, "val_dice": val_dice,
-        "val_prec": val_prec, "val_rec": val_rec
+        "train_loss": train_loss,
+        "train_iou": train_iou, "train_iou_std": train_iou_std,
+        "train_dice": train_dice, "train_dice_std": train_dice_std,
+        "train_prec": train_prec, "train_prec_std": train_prec_std,
+        "train_rec": train_rec, "train_rec_std": train_rec_std,
+        "val_loss": val_loss,
+        "val_iou": val_iou, "val_iou_std": val_iou_std,
+        "val_dice": val_dice, "val_dice_std": val_dice_std,
+        "val_prec": val_prec, "val_prec_std": val_prec_std,
+        "val_rec": val_rec, "val_rec_std": val_rec_std
     }
 
 def main():
@@ -350,8 +363,12 @@ def main():
 
     df = pd.DataFrame(results, columns=[
         "k","channels","n_total","n_train","n_val",
-        "train_loss","train_iou","train_dice","train_prec","train_rec",
-        "val_loss","val_iou","val_dice","val_prec","val_rec"
+        "train_loss",
+        "train_iou","train_iou_std","train_dice","train_dice_std",
+        "train_prec","train_prec_std","train_rec","train_rec_std",
+        "val_loss",
+        "val_iou","val_iou_std","val_dice","val_dice_std",
+        "val_prec","val_prec_std","val_rec","val_rec_std"
     ])
 
     # Ordene por Dice de validação (clássico para célula tumoral)

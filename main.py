@@ -25,12 +25,12 @@ import os
 
 load_dotenv()
 ROOT = r"C:\Users\victo\Downloads\Mestrado\TNBC\preproc_unet_per_channel"
-OUT_CSV = "results_per_channel_v4_with_imagenet.csv"
+OUT_CSV = "results_per_channel_with_imagenet.csv"
 
 IMG_SIZE = 512 
 VAL_SPLIT = 0.2
 BATCH_SIZE = 4 
-EPOCHS = 5 
+EPOCHS = 10 
 LR = 1e-4 
 NUM_WORKERS = 2 
 SEED = 1337
