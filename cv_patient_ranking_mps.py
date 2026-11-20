@@ -11,8 +11,9 @@ Uso:
 Saídas (em OUT_DIR):
     - ranking_per_channel.csv : ranking final (média ± desvio dos folds, por canal)
     - fold_details.csv        : métricas brutas de cada canal × fold
-    - checkpoints/<canal>/fold<k>_best_model.pth : pesos do melhor epoch de cada fold
-      (formato compatível com inference.py/show_pred.py: model_state_dict, epoch, val_dice)
+    - checkpoints/best_overall_model.pth : pesos do CAMPEÃO global (melhor fold de todos
+      os canais; formato compatível com inference.py/show_pred.py: model_state_dict,
+      epoch, val_dice — campos 'channel' e 'fold' indicam a origem)
 
 Retomada: canais com todos os folds presentes em fold_details.csv são pulados.
 """
@@ -59,7 +60,9 @@ IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior"])
 
 RANKING_CSV = os.path.join(OUT_DIR, "ranking_per_channel.csv")
 FOLDS_CSV = os.path.join(OUT_DIR, "fold_details.csv")
-CKPT_ROOT = os.path.join(OUT_DIR, "checkpoints")
+CKPT_DIR = os.path.join(OUT_DIR, "checkpoints")
+CHAMPION_CKPT = os.path.join(CKPT_DIR, "best_overall_model.pth")
+TMP_CKPT = os.path.join(CKPT_DIR, "_tmp_best.pth")
 
 # ==============
 # Utilidades base
@@ -270,10 +273,7 @@ def train_eval_one_fold(root, channel, fold_idx, train_stems, val_stems, device)
     opt = torch.optim.Adam(model.parameters(), lr=LR)
     criterion = DiceBCELoss()
 
-    ckpt_dir = Path(CKPT_ROOT) / channel
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
-    best_ckpt_path = ckpt_dir / f"fold{fold_idx}_best_model.pth"
-
+    os.makedirs(CKPT_DIR, exist_ok=True)
     best = {"val_dice": -1.0, "best_epoch": 0, "metrics": None}
 
     for epoch in range(1, EPOCHS + 1):
@@ -295,6 +295,7 @@ def train_eval_one_fold(root, channel, fold_idx, train_stems, val_stems, device)
             best = {"val_dice": metrics["val_dice"],
                     "best_epoch": epoch,
                     "metrics": metrics}
+            # Salva no temporário; o main() promove a campeão se o fold bater o recorde
             # Formato compatível com inference.py/show_pred.py (weights_only=True)
             torch.save({
                 "epoch": epoch,
@@ -305,9 +306,10 @@ def train_eval_one_fold(root, channel, fold_idx, train_stems, val_stems, device)
                 "val_rec": metrics["val_rec"],
                 "val_loss": metrics["val_loss"],
                 "channels": [channel],
+                "channel": channel,
                 "fold": fold_idx,
                 "best_epoch": epoch,
-            }, best_ckpt_path)
+            }, TMP_CKPT)
         if epoch % 5 == 0 or epoch == EPOCHS or improved:
             print(f"    [fold {fold_idx}] epoch {epoch}/{EPOCHS} - "
                   f"train_loss: {tr_loss:.4f} | val_dice: {metrics['val_dice']:.4f}"
@@ -326,7 +328,6 @@ def train_eval_one_fold(root, channel, fold_idx, train_stems, val_stems, device)
         "val_iou": metrics["val_iou"],
         "val_prec": metrics["val_prec"],
         "val_rec": metrics["val_rec"],
-        "checkpoint": str(best_ckpt_path),
     }
 
 # ===========================
@@ -351,6 +352,16 @@ def append_fold_row(row):
         df = new_df
     df.to_csv(FOLDS_CSV, index=False, encoding="utf-8")
 
+def load_champion_dice():
+    """Lê o campeão existente para conhecer o recorde atual (retomada)."""
+    if not os.path.exists(CHAMPION_CKPT):
+        return -1.0
+    ckpt = torch.load(CHAMPION_CKPT, map_location="cpu", weights_only=True)
+    dice = float(ckpt.get("val_dice", -1.0))
+    print(f"Campeão atual: {ckpt.get('channel')} fold {ckpt.get('fold')} "
+          f"(epoch {ckpt.get('best_epoch')}) val_dice: {dice:.4f}")
+    return dice
+
 def rebuild_ranking_csv():
     if not os.path.exists(FOLDS_CSV):
         return
@@ -364,14 +375,16 @@ def rebuild_ranking_csv():
         mean_val_rec=("val_rec", "mean"),
         n_folds_ok=("fold", "nunique"),
     ).reset_index()
-    fold_dices = (
+    fold_agg = (
         df.sort_values(["channel", "fold"])
-          .groupby("channel")["val_dice"]
-          .apply(lambda s: "|".join(f"{v:.4f}" for v in s))
-          .rename("fold_dices")
+          .groupby("channel")
+          .apply(lambda g: pd.Series({
+              "fold_dices": "|".join(f"{v:.4f}" for v in g["val_dice"]),
+              "fold_ious": "|".join(f"{v:.4f}" for v in g["val_iou"]),
+          }))
           .reset_index()
     )
-    agg = agg.merge(fold_dices, on="channel")
+    agg = agg.merge(fold_agg, on="channel")
     agg = agg.sort_values(by="mean_val_dice", ascending=False)
     agg.to_csv(RANKING_CSV, index=False, encoding="utf-8")
 
@@ -384,6 +397,8 @@ def main():
     print(f"Usando device: {device}")
 
     Path(OUT_DIR).mkdir(parents=True, exist_ok=True)
+
+    global_best_dice = load_champion_dice()
 
     channels = list_channels(ROOT)
     print(f"Canais encontrados: {len(channels)}")
@@ -425,6 +440,15 @@ def main():
                   f"val_dice: {row['val_dice']:.4f} (best epoch {row['best_epoch']})")
             append_fold_row(row)
 
+            # Promove o melhor epoch do fold a campeão global, ou descarta o temporário
+            if row["val_dice"] > global_best_dice:
+                global_best_dice = row["val_dice"]
+                os.replace(TMP_CKPT, CHAMPION_CKPT)
+                print(f"  -> NOVO CAMPEÃO GLOBAL: {channel} fold {fold_idx} "
+                      f"val_dice: {row['val_dice']:.4f}")
+            elif os.path.exists(TMP_CKPT):
+                os.remove(TMP_CKPT)
+
         rebuild_ranking_csv()
         print(f"[{channel}] Ranking atualizado: {RANKING_CSV}")
 
@@ -439,7 +463,7 @@ def main():
           f"({total_trainings} treinos de {EPOCHS} épocas)")
     print(f"Ranking: {RANKING_CSV}")
     print(f"Folds:   {FOLDS_CSV}")
-    print(f"Checkpoints: {CKPT_ROOT}/<canal>/fold<k>_best_model.pth")
+    print(f"Checkpoint campeão: {CHAMPION_CKPT}")
 
 if __name__ == "__main__":
     main()
