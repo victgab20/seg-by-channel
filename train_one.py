@@ -23,12 +23,12 @@ import segmentation_models_pytorch as smp
 # Hiperparâmetros
 # =========================
 ROOT = r"C:\Users\victo\Downloads\Mestrado\TNBC\preproc_unet_per_channel"
-OUT_DIR = "output_single_training_v1_all"  # Pasta para salvar modelo e resultados
+OUT_DIR = "output_single_training_v1_dsdna"
 
 IMG_SIZE = 512
 VAL_SPLIT = 0.2
 BATCH_SIZE = 4
-EPOCHS = 25
+EPOCHS = 5
 LR = 1e-4
 NUM_WORKERS = 2
 SEED = 1337
@@ -43,52 +43,9 @@ IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior"])
 # CONFIGURE SEUS CANAIS AQUI
 # =========================
 CHANNELS_TO_USE = [
-    "B7H3",
-    "Beta_catenin",
-    "C",
-    "Ca",
-    "CD11b",
-    "CD11c",
-    "CD138",
-    "CD16",
-    "CD163",
-    "CD20",
-    "CD209",
-    "CD3",
-    "CD31",
-    "CD4",
-    "CD45",
-    "CD45RO",
-    "CD56",
-    "CD63",
-    "CD68",
-    "CD8",
-    "CSF-1R",
-    "dsDNA",
-    "EGFR",
-    "Fe",
-    "FoxP3",
-    "H3K27me3",
-    "H3K9ac",
-    "HLA-DR",
-    "HLA_Class_1",
-    "IDO",
-    "Keratin17",
-    "Keratin6",
-    "Ki67",
-    "Lag3",
-    "MPO",
-    "Na",
-    "OX40",
-    "P",
-    "p53",
-    "Pan-Keratin",
-    "PD-L1",
-    "PD1",
-    "phospho-S6",
-    "SMA",
-    "Vimentin"
+    "dsDNA"
 ]
+
 # ==============
 # Utilidades
 # ==============
@@ -136,6 +93,24 @@ def intersect_stems(dicts):
     for d in dicts:
         keys = set(d.keys()) if keys is None else (keys & set(d.keys()))
     return sorted(list(keys)) if keys is not None else []
+
+# =========================
+# Checkpoints
+# =========================
+def save_checkpoint(path, epoch, model, optimizer, scheduler, val_metrics, channels, best_val_dice, best_epoch):
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict() if scheduler is not None else None,
+        'val_metrics': val_metrics,                 # dict com loss/dice/iou/precision/recall
+        'best_val_dice': best_val_dice,
+        'best_epoch': best_epoch,
+        'channels': channels,
+        'encoder_name': ENCODER,
+        'encoder_weights': ENCODER_WEIGHTS,
+        'img_size': IMG_SIZE
+    }, path)
 
 class MultiChannelSegDataset(Dataset):
     def __init__(self, root, channel_names, stems, img_size=512):
@@ -381,18 +356,42 @@ def train_model(root, channels, device, save_dir):
         history['val_loss'].append(val_metrics['loss'])
         history['val_dice'].append(val_metrics['dice'])
         history['val_iou'].append(val_metrics['iou'])
-        
-        # Salva melhor modelo
-        # if val_metrics['dice'] > best_val_dice:
-        #     best_val_dice = val_metrics['dice']
-        #     best_epoch = epoch
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'model_state_dict': model.state_dict(),
-        #         'optimizer_state_dict': optimizer.state_dict(),
-        #         'val_dice': best_val_dice,
-        #         'channels': channels
-        #     }, os.path.join(save_dir, 'best_model.pth'))
+
+        # ============ CHECKPOINTS ============
+        # Salva "último" a cada época (bom para retomar treino)
+        last_ckpt_path = os.path.join(save_dir, "last_checkpoint.pth")
+        save_checkpoint(
+            path=last_ckpt_path,
+            epoch=epoch,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            val_metrics=val_metrics,
+            channels=channels,
+            best_val_dice=best_val_dice,
+            best_epoch=best_epoch
+        )
+
+        # Salva "melhor" quando melhora Dice de validação
+        if val_metrics['dice'] > best_val_dice:
+            best_val_dice = val_metrics['dice']
+            best_epoch = epoch
+
+            best_ckpt_path = os.path.join(save_dir, "best_model.pth")
+            save_checkpoint(
+                path=best_ckpt_path,
+                epoch=epoch,
+                model=model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                val_metrics=val_metrics,
+                channels=channels,
+                best_val_dice=best_val_dice,
+                best_epoch=best_epoch
+            )
+
+            # Opcional: salva só os pesos (arquivo menor)
+            torch.save(model.state_dict(), os.path.join(save_dir, "best_weights_only.pth"))
         
         # Log a cada 5 épocas ou na última
         if epoch % 5 == 0 or epoch == EPOCHS:
@@ -463,12 +462,19 @@ def main():
         return
     
     # Treina
-    model, history, summary = train_model(ROOT, CHANNELS_TO_USE, device, OUT_DIR)
+    result = train_model(ROOT, CHANNELS_TO_USE, device, OUT_DIR)
+    if result is None:
+        return
+
+    model, history, summary = result
     
     if model is not None:
         print(f"\n📊 Resultados salvos em: {OUT_DIR}/")
         print(f"   - training_history.csv (histórico por época)")
         print(f"   - training_summary.csv (resumo final)")
+        print(f"   - last_checkpoint.pth (checkpoint da última época)")
+        print(f"   - best_model.pth (checkpoint do melhor Dice de validação)")
+        print(f"   - best_weights_only.pth (somente pesos do melhor modelo)")
         
         print(f"\n📈 Métricas finais:")
         print(f"   Val Dice: {summary['final_val_dice']:.4f}")

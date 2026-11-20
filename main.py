@@ -30,7 +30,7 @@ OUT_CSV = "results_per_channel_with_imagenet.csv"
 IMG_SIZE = 512 
 VAL_SPLIT = 0.2
 BATCH_SIZE = 4 
-EPOCHS = 10 
+EPOCHS = 30 
 LR = 1e-4 
 NUM_WORKERS = 2 
 SEED = 1337
@@ -41,26 +41,6 @@ ACTIVATION = None
 
 IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior", "Au","Ta","Si"])
 
-# ROOT = os.getenv("ROOT")
-
-# OUT_CSV = os.getenv("OUT_CSV")
-
-# IMG_SIZE = int(os.getenv("IMG_SIZE", 512))
-# VAL_SPLIT = float(os.getenv("VAL_SPLIT", 0.2))
-# BATCH_SIZE = int(os.getenv("BATCH_SIZE", 4))
-# EPOCHS = int(os.getenv("EPOCHS", 5))
-# LR = float(os.getenv("LR", 1e-4))
-# NUM_WORKERS = int(os.getenv("NUM_WORKERS", 2))
-# SEED = int(os.getenv("SEED", 1337))
-
-# ENCODER = os.getenv("ENCODER", "resnet18")
-# ENCODER_WEIGHTS = os.getenv("ENCODER_WEIGHTS", None)
-# ACTIVATION = os.getenv("ACTIVATION", None)
-
-# ignore_dirs_str = os.getenv("IGNORE_DIRS", "")
-# IGNORE_DIRS = set(d.strip() for d in ignore_dirs_str.split(",") if d.strip())
-
-# IGNORE_DIRS = set([])  # ex.: {"Background", "Segmentation", "SegmentationInterior"}
 
 def set_seed(seed: int = 1337):
     random.seed(seed)
