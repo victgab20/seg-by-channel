@@ -1,0 +1,11 @@
+======================================================================
+RESUMO FINAL (ordenado por val_dice)
+======================================================================
+   k                                           channels  val_dice   val_iou  val_prec   val_rec
+6  7  dsDNA|CD4|Beta_catenin|HLA-DR|H3K9ac|Pan-Kerat...  0.894111  0.809485  0.876369  0.913067
+1  2                                          dsDNA|CD4  0.893799  0.809008  0.877412  0.911890
+0  1                                              dsDNA  0.893618  0.808488  0.861845  0.928641
+2  3                             dsDNA|CD4|Beta_catenin  0.884516  0.794570  0.886241  0.885289
+3  4                      dsDNA|CD4|Beta_catenin|HLA-DR  0.880423  0.788618  0.882594  0.879680
+4  5               dsDNA|CD4|Beta_catenin|HLA-DR|H3K9ac  0.870788  0.773431  0.882385  0.860061
+5  6   dsDNA|CD4|Beta_catenin|HLA-DR|H3K9ac|Pan-Keratin  0.865846  0.767851  0.863036  0.869245

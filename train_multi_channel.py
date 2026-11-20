@@ -22,13 +22,13 @@ import segmentation_models_pytorch as smp
 # =========================
 # Hiperparâmetros originais
 # =========================
-ROOT = r"C:\Users\victo\Downloads\Mestrado\TNBC\preproc_unet_per_channel"
-OUT_CSV = "results_multichannel_incremental_my_test_encoder_imagenet.csv"
+ROOT = "/Users/victorgabriel/Downloads/Mestrado/TNBC/preproc_unet_per_channel"
+OUT_CSV = "results_multichannel_incremental_my_test_encoder_imagenet_new_30.csv"
 
 IMG_SIZE = 512
 VAL_SPLIT = 0.2
 BATCH_SIZE = 4
-EPOCHS = 10
+EPOCHS = 30
 LR = 1e-4
 NUM_WORKERS = 2
 SEED = 1337
@@ -42,18 +42,18 @@ IGNORE_DIRS = set(["Background", "Segmentation", "SegmentationInterior"])
 # Ranking trazido (por Dice)
 
 #TOP_BY_DICE = ["dsDNA","Ta","Au","P","H3K27me3","Ca","C","Lag3","OX40","CD11c"]
-
+ 
 TOP_BY_DICE = [
-'dsDNA',
-'P',
-"Ca",
-"Na",
-"CD56",
-"CD209",
-"CD31",
-"Keratin17",
-"CD45RO",
-"OX40",
+    "dsDNA",
+    "P",
+    "H3K9ac",
+    "Ca",
+    "H3K27me3",
+    "Na",
+    "phospho-S6",
+    "HLA_Class_1",
+    "Fe",
+    "C"
 ]
 
 
@@ -321,7 +321,7 @@ def train_eval_for_k(root, channels_k, stems, train_idx, val_idx, device):
 
 def main():
     set_seed(SEED)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Usando device: {device}")
 
     # Confere existência dos canais do ranking
